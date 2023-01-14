@@ -1,0 +1,76 @@
+- name: Install Portainer
+  hosts: all
+  become: true
+
+  vars:
+    - docker_dir: /home/ansible/docker
+
+  pre_tasks:
+    - name: Remove podman and buildah
+      dnf:
+        name:
+          - podman
+          - buildah
+        state: absent
+
+    - name: Update dnf cache
+      dnf:
+        update_cache: true
+
+    - name: Upgrade all packages
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: Make sure the docker folder exists
+      file:
+        path: "{{ docker_dir }}"
+        state: directory
+        mode: "0755"
+
+  tasks:
+    - name: Install yum-config-manager
+      dnf:
+        name: yum-utils
+        state: present
+
+    - name: Add docker repo
+      shell: dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install docker and other utils
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+
+    - name: Enable docker serviec
+      systemd:
+        name: docker.service
+        state: started
+        enabled: true
+
+    - name: Download docker-compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        owner: ansible
+        group: ansible
+
+    - name: Create portainer folder
+      file:
+        path: "{{ docker_dir }}/portainer"
+        state: directory
+        mode: "0755"
+
+    - name: Copy portainer compose file
+      copy:
+        src: files/portainer.yml
+        dest: /home/ansible/docker/portainer/docker-compose.yml
+
+    - name: Run portainer container
+      shell: /usr/local/bin/docker-compose up -d
+      args:
+        chdir: /home/ansible/docker/portainer
