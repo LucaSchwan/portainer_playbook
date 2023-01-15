@@ -1,5 +1,5 @@
 - name: Install Portainer
-  hosts: all
+  hosts: portainer
   become: true
 
   vars:
